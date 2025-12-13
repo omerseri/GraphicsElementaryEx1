@@ -181,7 +181,6 @@ def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lig
     for i in range(chunk_height):
         y = y_start + i
         for x in range(width):
-            print(f"Rendering pixel ({x}, {i + y_start}) in chunk from {y_start} to {y_end}")
             # Same ray generation logic as before
             ray_origin, ray_dir = camera.get_ray(x, y, width, height)
             
@@ -207,7 +206,6 @@ def main():
 
     # Determine how many CPUs we have
     num_processes = multiprocessing.cpu_count()
-    print(f"Rendering {args.scene_file} using {num_processes} cores...")
 
     # Calculate chunk size (how many rows per process)
     chunk_size = args.height // num_processes

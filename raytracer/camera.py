@@ -16,7 +16,7 @@ class Camera:
         # Logic: Precompute Basis Vectors
         self.W = normalize(self.look_at - self.position)
         self.U = normalize(np.cross(self.up_vector, self.W))
-        self.V = normalize(np.cross(self.U, self.W))
+        self.V = normalize(np.cross(self.W, self.U))
         
         self.screen_center = self.position + self.W * self.screen_distance
 

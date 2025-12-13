@@ -1,0 +1,33 @@
+# Camera: Px Py Pz, Lx Ly Lz, Ux Uy Uz, Dist, Width
+cam 	  4  4  6   0  1  0   0  1  0   1.0   1.0
+
+# Settings: Dark background, 5x5 shadow rays, 5 bounces
+set 	  0.05 0.05 0.05   5   5
+
+# MATERIALS
+# 1: Chrome/Mirror (High reflection, low diffuse)
+mtl 	  0.1  0.1  0.1    1.0  1.0  1.0    0.8  0.8  0.8    100   0
+# 2: Matte Red box
+mtl 	  0.8  0.1  0.1    0.5  0.5  0.5    0.1  0.1  0.1    20    0
+# 3: Dark Reflective Floor
+mtl 	  0.1  0.1  0.1    0.8  0.8  0.8    0.5  0.5  0.5    50    0
+# 4: Gold Box
+mtl 	  0.8  0.6  0.2    1.0  1.0  1.0    0.4  0.4  0.4    80    0
+
+# PLANES
+# Floor
+pln 	  0  1  0    0    3
+
+# BOXES
+# Central Monolith (Chrome) - Tall and thin
+box 	  0  2  0    1.5    1
+# Left Monolith (Gold) - Short and fat
+box 	 -2  1  1    1.0    4
+# Right Monolith (Red) - Floating slightly
+box 	  2  2.5 -1    1.0    2
+
+# LIGHTS
+# Light 1: Teal/Blue light from the left
+lgt 	 -5  5  5    0.1  0.8  1.0    1.0  1.0  0.5
+# Light 2: Orange warm light from the right
+lgt 	  5  5  5    1.0  0.6  0.1    1.0  1.0  0.5

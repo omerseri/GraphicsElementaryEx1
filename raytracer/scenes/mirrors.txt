@@ -1,0 +1,18 @@
+# Camera
+cam 	  	0   	1	2 	0   	0   	-3  	0   	1   	0  	1.0	1.0	
+# Settings (Rec max is 10 to allow multiple bounces)
+set 		0  	0  	0   	3 	10
+
+# Material
+mtl		0.8	0	0	1	1	1	0.2	0.2	0.2	50	0
+mtl		0.2	0.2	0.2	1	1	1	0.8	0.8	0.8	100	0
+
+# Spheres
+sph		0	0	-3	1	1
+
+# Planes (Floor and Ceiling mirrors)
+pln		0	1	0	-1.5	2
+pln		0	-1	0	-3	2
+
+# Lights
+lgt		0	0	0	1	1	1	1	1	0.5

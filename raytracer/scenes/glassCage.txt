@@ -1,0 +1,26 @@
+# Camera
+cam 	  0  3  5    0  0  0   0  1  0   1.0   1.0
+
+# Settings
+set 	  0  0  0    4   5
+
+# MATERIALS
+# 1: Pure Glass (High transparency, some reflection)
+mtl 	  0  0  0      1  1  1    0.1 0.1 0.1    100   0.9
+# 2: Solid Red
+mtl 	  0.9 0.1 0.1  0.5 0.5 0.5  0 0 0        50    0
+# 3: Floor (Checkered simulation - using grey)
+mtl 	  0.5 0.5 0.5  0  0  0    0 0 0          1     0
+
+# OBJECTS
+pln 	  0  1  0    -2   3
+
+# Outer Glass Box (Large, Size 3.0)
+box 	  0  0  0    3.0  1
+
+# Inner Solid Box (Small, Size 1.0)
+# It is effectively "inside" the glass box.
+box 	  0  0  0    1.0  2
+
+# LIGHTS
+lgt 	  3  5  3    1  1  1    1  0.5  1.0
