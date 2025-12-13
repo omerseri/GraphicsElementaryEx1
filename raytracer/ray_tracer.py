@@ -53,9 +53,9 @@ def parse_scene_file(file_path):
                 raise ValueError("Unknown object type: {}".format(obj_type))
     return camera, scene_settings, objects
 
-def save_image(image_array):
+def save_image(image_array, file_name="output.png"):
     image = Image.fromarray(np.uint8(image_array))
-    image.save("scenes/Spheres.png")
+    image.save(file_name)
 
 def find_nearest_object(ray_origin, ray_dir, surfaces):
     nearest_t = float('inf')
@@ -113,7 +113,6 @@ def calculate_soft_shadow(hit_point, light, surfaces, root_shadow_rays):
     return rays_hit_light / total_rays
 
 def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursion_level):
-    print("Recursion Level:", recursion_level)
     if recursion_level > settings.max_recursions:
         return np.array(settings.background_color)
 
@@ -172,8 +171,7 @@ def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursi
     color = (transparency_color * mat.transparency) + \
             (diffuse_final + specular_final) * (1 - mat.transparency) + \
             reflection_color
-            
-    return np.clip(color, 0, 255)
+    return 255 * color
 
 def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lights, scene_settings):
     # Create a local buffer for this chunk of the image
@@ -183,6 +181,7 @@ def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lig
     for i in range(chunk_height):
         y = y_start + i
         for x in range(width):
+            print(f"Rendering pixel ({x}, {i + y_start}) in chunk from {y_start} to {y_end}")
             # Same ray generation logic as before
             ray_origin, ray_dir = camera.get_ray(x, y, width, height)
             
@@ -236,7 +235,7 @@ def main():
     
     # Concatenate all the chunk arrays into one final image
     final_image = np.concatenate([r[1] for r in results], axis=0)
-    save_image(final_image)
+    save_image(final_image, args.output_image)
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
