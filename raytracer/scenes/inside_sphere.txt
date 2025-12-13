@@ -1,0 +1,31 @@
+# THE SPHERE ROOM
+# Camera is inside the giant red sphere (Index 1)
+
+# Camera: at 0,0,0 looking forward
+cam 	  0  0  0    0  0  -1   0  1  0   1.0   1.0
+
+# Settings:
+set 	  0  0  0    5   5
+
+# MATERIALS
+# 1: The Room Walls (Matte Red)
+mtl 	  0.8 0.1 0.1    0.2 0.2 0.2    0 0 0        10    0
+# 2: Mirror Sphere (Chrome)
+mtl 	  0.1 0.1 0.1    1   1   1      0.9 0.9 0.9  100   0
+# 3: Glass Sphere (Transparent)
+mtl 	  0   0   0      1   1   1      0.1 0.1 0.1  100   0.8
+# 4: Blue Sphere (Plastic)
+mtl 	  0.1 0.1 0.8    0.5 0.5 0.5    0.1 0.1 0.1  50    0
+
+# SPHERES
+# The "Room" - Huge sphere we are inside
+sph 	  0  0  0    20    1
+
+# Floating Objects inside
+sph 	 -4  0  -8   2     2
+sph 	  4  0  -8   2     3
+sph 	  0 -3  -6   1.5   4 
+
+# LIGHTS
+# Light is inside the room with us (at 0, 8, 0)
+lgt 	  0  8  0    1  1  1    1   1   1.0

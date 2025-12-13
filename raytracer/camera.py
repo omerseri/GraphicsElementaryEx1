@@ -13,7 +13,7 @@ class Camera:
         self.screen_distance = float(screen_distance)
         self.screen_width = float(screen_width)
         
-        # Logic: Precompute Basis Vectors
+        # Precompute Basis Vectors
         self.W = normalize(self.look_at - self.position)
         self.U = normalize(np.cross(self.up_vector, self.W))
         self.V = normalize(np.cross(self.W, self.U))
