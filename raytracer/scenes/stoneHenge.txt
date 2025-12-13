@@ -1,0 +1,26 @@
+# Camera: High angle looking down
+cam 	  0  8  8    0  0  0   0  1  0   1.0   1.0
+
+# Settings (High shadow rays for quality)
+set 	  0.2 0.2 0.3    6   3
+
+# MATERIALS
+# 1: Grey Stone
+mtl 	  0.6 0.6 0.6    0.1 0.1 0.1    0 0 0        10    0
+# 2: Green Floor
+mtl 	  0.2 0.5 0.2    0 0 0          0.1 0.1 0.1  10    0
+
+# PLANES
+pln 	  0  1  0    0    2
+
+# BOXES (Pillars)
+box 	 -2  1  -1   0.8   1
+box 	  0  1  -2   0.8   1
+box 	  2  1  -1   0.8   1
+box 	 -3  1   1   0.8   1
+box 	  3  1   1   0.8   1
+
+# LIGHTS
+# A large "Sun" directly overhead but slightly forward
+# Radius 2.0 creates very soft shadows
+lgt 	  0  10 5    1  1  0.9    1  1  2.0
