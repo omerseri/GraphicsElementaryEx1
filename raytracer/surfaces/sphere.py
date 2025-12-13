@@ -9,21 +9,23 @@ class Sphere(Surface):
         self.material_index = material_index
 
     def intersect(self, ray_origin, ray_dir):
-        # Math: |O + tV - C|^2 = r^2
         L = self.position - ray_origin
         tca = np.dot(L, ray_dir)
-        if tca < 0:
-            return float('inf'), None
+        
         d2 = np.dot(L, L) - tca * tca
         if d2 > self.radius * self.radius:
             return float('inf'), None
+            
         thc = np.sqrt(self.radius * self.radius - d2)
+        
         t0 = tca - thc
         t1 = tca + thc
-        t = t0 if t0 > EPSILON else t1
-        if t < EPSILON:
-            return float('inf'), None
-        hit_point = ray_origin + t * ray_dir
-        normal = hit_point - self.position
-        normal = normal / np.linalg.norm(normal)
-        return t, normal
+        
+        # If t0 is negative (behind us), try t1 (in front of us)
+        if t0 > EPSILON:
+            return t0, self.normalize(ray_origin + t0 * ray_dir - self.position)
+        elif t1 > EPSILON:
+            # We are inside the sphere, normal points inward
+            return t1, -self.normalize(ray_origin + t1 * ray_dir - self.position)
+            
+        return float('inf'), None

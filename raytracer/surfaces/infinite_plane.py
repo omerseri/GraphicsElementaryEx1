@@ -9,8 +9,7 @@ class InfinitePlane(Surface):
         self.material_index = material_index
 
     def intersect(self, ray_origin, ray_dir):
-        # Math: (P . N) = offset
-        # (O + tD) . N = offset
+        # (O + tV) . N = offset
         denom = np.dot(ray_dir, self.normal)
 
         # Avoid division by zero (parallel ray)

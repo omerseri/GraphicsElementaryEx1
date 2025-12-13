@@ -9,7 +9,6 @@ class Cube(Surface):
         self.material_index = material_index
 
     def intersect(self, ray_origin, ray_dir):
-        # Slabs method
         center = self.position
         half_scale = self.scale / 2.0
         
@@ -19,7 +18,8 @@ class Cube(Surface):
         t_min = -float('inf')
         t_max = float('inf')
         
-        normal = np.zeros(3)
+        min_normal = None
+        max_normal = None
         
         for i in range(3): # x, y, z axes
             # Check for parallel rays
@@ -36,18 +36,23 @@ class Cube(Surface):
                 
                 if t1 > t_min:
                     t_min = t1
-                    # Update normal based on the axis we just hit
                     current_normal = np.zeros(3)
                     current_normal[i] = -1 if ray_dir[i] > 0 else 1
-                    normal = current_normal
+                    min_normal = current_normal
                     
                 if t2 < t_max:
                     t_max = t2
+                    current_normal = np.zeros(3)
+                    current_normal[i] = 1 if ray_dir[i] > 0 else -1
+                    max_normal = current_normal
                     
                 if t_min > t_max:
                     return float('inf'), None
-                    
+
         if t_min > EPSILON:
-            return t_min, normal
+            return t_min, min_normal
+        elif t_max > EPSILON:
+            # We hit the "exit" wall from the inside.
+            return t_max, -max_normal
         
         return float('inf'), None

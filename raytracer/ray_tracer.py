@@ -181,7 +181,6 @@ def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lig
     for i in range(chunk_height):
         y = y_start + i
         for x in range(width):
-            # Same ray generation logic as before
             ray_origin, ray_dir = camera.get_ray(x, y, width, height)
             
             pixel_color = cast_ray(ray_origin, ray_dir, surfaces, materials, lights, scene_settings, 0)
