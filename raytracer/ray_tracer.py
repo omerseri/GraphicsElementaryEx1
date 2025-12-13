@@ -235,8 +235,11 @@ def main():
     results.sort(key=lambda x: x[0])
     
     # Concatenate all the chunk arrays into one final image
+    # [r[1] for r in results] extracts just the image arrays from the tuples
     final_image = np.concatenate([r[1] for r in results], axis=0)
     save_image(final_image)
+    ""
+    
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
