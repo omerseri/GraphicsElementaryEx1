@@ -1,15 +1,22 @@
 import argparse
 from PIL import Image
 import numpy as np
+import random
+import multiprocessing
 
+from constants import EPSILON
 from camera import Camera
 from light import Light
 from material import Material
 from scene_settings import SceneSettings
+from surfaces import Surface 
 from surfaces.cube import Cube
 from surfaces.infinite_plane import InfinitePlane
 from surfaces.sphere import Sphere
 
+def normalize(v):
+    norm = np.linalg.norm(v)
+    return v if norm == 0 else v / norm
 
 def parse_scene_file(file_path):
     objects = []
@@ -46,13 +53,143 @@ def parse_scene_file(file_path):
                 raise ValueError("Unknown object type: {}".format(obj_type))
     return camera, scene_settings, objects
 
-
 def save_image(image_array):
     image = Image.fromarray(np.uint8(image_array))
-
-    # Save the image to a file
     image.save("scenes/Spheres.png")
 
+def find_nearest_object(ray_origin, ray_dir, surfaces):
+    nearest_t = float('inf')
+    nearest_obj = None
+    nearest_normal = None
+    
+    for obj in surfaces:
+        t, normal = obj.intersect(ray_origin, ray_dir)
+        if t < nearest_t:
+            nearest_t = t
+            nearest_obj = obj
+            nearest_normal = normal
+
+    return nearest_t, nearest_obj, nearest_normal
+
+def calculate_soft_shadow(hit_point, light, surfaces, root_shadow_rays):
+    light_pos = np.array(light.position)
+    to_light = light_pos - hit_point
+    light_dir = normalize(to_light)
+
+    helper = np.array([0, 1, 0])
+    if abs(np.dot(helper, light_dir)) > 0.99:
+        helper = np.array([1, 0, 0])
+    
+    light_u = normalize(np.cross(helper, light_dir))
+    light_v = normalize(np.cross(light_dir, light_u))
+
+    rect_width = light.radius
+    cell_size = rect_width / root_shadow_rays
+    
+    rays_hit_light = 0.0
+    total_rays = root_shadow_rays * root_shadow_rays
+    
+    start_point = light_pos - (light_u * rect_width / 2) - (light_v * rect_width / 2)
+
+    for i in range(root_shadow_rays):
+        for j in range(root_shadow_rays):
+            rand_u = random.random()
+            rand_v = random.random()
+            
+            cell_center_u = (i + rand_u) * cell_size
+            cell_center_v = (j + rand_v) * cell_size
+            
+            sample_point = start_point + (light_u * cell_center_u) + (light_v * cell_center_v)
+            
+            shadow_vec = sample_point - hit_point
+            dist_to_sample = np.linalg.norm(shadow_vec)
+            shadow_dir = normalize(shadow_vec)
+            
+            nearest_t, _, _ = find_nearest_object(hit_point, shadow_dir, surfaces)
+            
+            if nearest_t >= dist_to_sample - EPSILON: 
+                rays_hit_light += 1.0
+
+    return rays_hit_light / total_rays
+
+def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursion_level):
+    print("Recursion Level:", recursion_level)
+    if recursion_level > settings.max_recursions:
+        return np.array(settings.background_color)
+
+    t, hit_obj, normal = find_nearest_object(ray_origin, ray_dir, surfaces)
+
+    if hit_obj is None:
+        return np.array(settings.background_color)
+
+    hit_point = ray_origin + t * ray_dir
+    hit_point_offset = hit_point + normal * EPSILON 
+
+    mat = materials[hit_obj.material_index - 1]
+    
+    diffuse_final = np.zeros(3)
+    specular_final = np.zeros(3)
+
+    for light in lights:
+        light_pos = np.array(light.position)
+        L_vec = light_pos - hit_point
+        L_dir = normalize(L_vec)
+
+        light_intensity_factor = calculate_soft_shadow(hit_point_offset, light, surfaces, int(settings.root_number_shadow_rays))
+        intensity = (1 - light.shadow_intensity) + (light.shadow_intensity * light_intensity_factor)
+        
+        if intensity > 0:
+            light_color = np.array(light.color)
+            N_dot_L = max(0, np.dot(normal, L_dir))
+
+            # I_diff = K_d * I_p * (N · L)
+            diffuse_contribution = light_color * np.array(mat.diffuse_color) * N_dot_L
+            
+        
+            R_dir = normalize(2 * np.dot(normal, L_dir) * normal - L_dir)
+            V_dir = normalize(-ray_dir)
+            R_dot_V = max(0, np.dot(R_dir, V_dir))
+            
+            # I_spec = K_s * I_p * (R · V)^n * specular_intensity
+            specular_factor = pow(R_dot_V, mat.shininess) * light.specular_intensity
+            specular_contribution = light_color * np.array(mat.specular_color) * specular_factor
+
+            diffuse_final += diffuse_contribution * intensity
+            specular_final += specular_contribution * intensity
+
+    reflection_color = np.zeros(3)
+    if np.linalg.norm(mat.reflection_color) > 0:
+        # R = V - 2(V · N)N
+        ref_dir = normalize(ray_dir - 2 * np.dot(ray_dir, normal) * normal)
+        rec_color = cast_ray(hit_point_offset, ref_dir, surfaces, materials, lights, settings, recursion_level + 1)
+        reflection_color = rec_color * np.array(mat.reflection_color)
+
+    transparency_color = np.zeros(3)
+    if mat.transparency > 0:
+        pass_through_origin = hit_point + ray_dir * EPSILON 
+        transparency_color = cast_ray(pass_through_origin, ray_dir, surfaces, materials, lights, settings, recursion_level + 1)
+
+    color = (transparency_color * mat.transparency) + \
+            (diffuse_final + specular_final) * (1 - mat.transparency) + \
+            reflection_color
+            
+    return np.clip(color, 0, 255)
+
+def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lights, scene_settings):
+    # Create a local buffer for this chunk of the image
+    chunk_height = y_end - y_start
+    chunk_image = np.zeros((chunk_height, width, 3))
+    
+    for i in range(chunk_height):
+        y = y_start + i
+        for x in range(width):
+            # Same ray generation logic as before
+            ray_origin, ray_dir = camera.get_ray(x, y, width, height)
+            
+            pixel_color = cast_ray(ray_origin, ray_dir, surfaces, materials, lights, scene_settings, 0)
+            chunk_image[i, x] = pixel_color
+            
+    return (y_start, chunk_image)
 
 def main():
     parser = argparse.ArgumentParser(description='Python Ray Tracer')
@@ -62,17 +199,45 @@ def main():
     parser.add_argument('--height', type=int, default=500, help='Image height')
     args = parser.parse_args()
 
-    # Parse the scene file
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
-    # TODO: Implement the ray tracer
+    # Filter objects by type
+    materials = [obj for obj in objects if isinstance(obj, Material)]
+    lights = [obj for obj in objects if isinstance(obj, Light)]
+    surfaces = [obj for obj in objects if isinstance(obj, Surface)]
 
-    # Dummy result
-    image_array = np.zeros((500, 500, 3))
+    # Determine how many CPUs we have
+    num_processes = multiprocessing.cpu_count()
+    print(f"Rendering {args.scene_file} using {num_processes} cores...")
 
-    # Save the output image
-    save_image(image_array)
+    # Calculate chunk size (how many rows per process)
+    chunk_size = args.height // num_processes
+    
+    # Create a list of arguments for each process
+    # Each process gets a different y_start and y_end
+    tasks = []
+    for i in range(num_processes):
+        y_start = i * chunk_size
+        # The last process takes any remaining rows (in case height isn't divisible by num_processes)
+        if i == num_processes - 1:
+            y_end = args.height
+        else:
+            y_end = (i + 1) * chunk_size
+        
+        tasks.append((y_start, y_end, args.width, args.height, camera, surfaces, materials, lights, scene_settings))
 
+    # Create the Pool and Run tasks
+    with multiprocessing.Pool(processes=num_processes) as pool:
+        # starmap unpacks the arguments tuple into the function arguments
+        results = pool.starmap(render_chunk, tasks)
+
+    # Sort results by y_start to ensure correct order
+    results.sort(key=lambda x: x[0])
+    
+    # Concatenate all the chunk arrays into one final image
+    final_image = np.concatenate([r[1] for r in results], axis=0)
+    save_image(final_image)
 
 if __name__ == '__main__':
+    multiprocessing.freeze_support()
     main()
