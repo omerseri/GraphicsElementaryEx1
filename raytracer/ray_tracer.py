@@ -171,7 +171,7 @@ def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursi
     color = (transparency_color * mat.transparency) + \
             (diffuse_final + specular_final) * (1 - mat.transparency) + \
             reflection_color
-    return 255 * color
+    return np.clip(color, 0, 1)
 
 def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lights, scene_settings):
     # Create a local buffer for this chunk of the image
@@ -186,7 +186,7 @@ def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lig
             ray_origin, ray_dir = camera.get_ray(x, y, width, height)
             
             pixel_color = cast_ray(ray_origin, ray_dir, surfaces, materials, lights, scene_settings, 0)
-            chunk_image[i, x] = pixel_color
+            chunk_image[i, x] = 255 * pixel_color
             
     return (y_start, chunk_image)
 
