@@ -2,7 +2,7 @@ import argparse
 from PIL import Image
 import numpy as np
 import random
-import multiprocessing
+import time
 
 from constants import EPSILON
 from camera import Camera
@@ -72,10 +72,12 @@ def find_nearest_object(ray_origin, ray_dir, surfaces):
     return nearest_t, nearest_obj, nearest_normal
 
 def calculate_soft_shadow(hit_point, light, surfaces, root_shadow_rays):
+    N = root_shadow_rays
     light_pos = np.array(light.position)
     to_light = light_pos - hit_point
     light_dir = normalize(to_light)
 
+    # יצירת מערכת צירים מקומית למקור האור
     helper = np.array([0, 1, 0])
     if abs(np.dot(helper, light_dir)) > 0.99:
         helper = np.array([1, 0, 0])
@@ -84,33 +86,42 @@ def calculate_soft_shadow(hit_point, light, surfaces, root_shadow_rays):
     light_v = normalize(np.cross(light_dir, light_u))
 
     rect_width = light.radius
-    cell_size = rect_width / root_shadow_rays
-    
-    rays_hit_light = 0.0
-    total_rays = root_shadow_rays * root_shadow_rays
-    
+    cell_size = rect_width / N
     start_point = light_pos - (light_u * rect_width / 2) - (light_v * rect_width / 2)
 
-    for i in range(root_shadow_rays):
-        for j in range(root_shadow_rays):
-            rand_u = random.random()
-            rand_v = random.random()
-            
-            cell_center_u = (i + rand_u) * cell_size
-            cell_center_v = (j + rand_v) * cell_size
-            
-            sample_point = start_point + (light_u * cell_center_u) + (light_v * cell_center_v)
-            
-            shadow_vec = sample_point - hit_point
-            dist_to_sample = np.linalg.norm(shadow_vec)
-            shadow_dir = normalize(shadow_vec)
-            
-            nearest_t, _, _ = find_nearest_object(hit_point, shadow_dir, surfaces)
-            
-            if nearest_t >= dist_to_sample - EPSILON: 
-                rays_hit_light += 1.0
+    # --- וקטוריזציה באמצעות NumPy ---
+    # יצירת רשת (Grid) של אינדקסים
+    i_indices, j_indices = np.meshgrid(np.arange(N), np.arange(N), indexing='ij')
+    
+    # יצירת ערכי jitter אקראיים לכל התאים בבת אחת
+    rand_u = np.random.random((N, N))
+    rand_v = np.random.random((N, N))
+    
+    # חישוב אופסטים לכל דגימה
+    offsets_u = (i_indices + rand_u) * cell_size
+    offsets_v = (j_indices + rand_v) * cell_size
+    
+    # חישוב כל נקודות הדגימה על גבי מישור האור (Broadcasting)
+    # sample_points shape: (N, N, 3)
+    sample_points = (start_point + 
+                     offsets_u[:, :, np.newaxis] * light_u + 
+                     offsets_v[:, :, np.newaxis] * light_v)
+    
+    # שינוי צורה לרשימת נקודות (N*N, 3)
+    flat_samples = sample_points.reshape(-1, 3)
+    shadow_vecs = flat_samples - hit_point
+    dists_to_samples = np.linalg.norm(shadow_vecs, axis=1)
+    shadow_dirs = shadow_vecs / dists_to_samples[:, np.newaxis]
+    
+    rays_hit_light = 0.0
+    # בדיקת חסימה עבור כל קרן צל
+    # הערה: כיוון ש-find_nearest_object אינו וקטורי בעצמו, נרוץ על הקרניים בלולאה
+    for idx in range(N * N):
+        nearest_t, _, _ = find_nearest_object(hit_point, shadow_dirs[idx], surfaces)
+        if nearest_t >= dists_to_samples[idx] - EPSILON: 
+            rays_hit_light += 1.0
 
-    return rays_hit_light / total_rays
+    return rays_hit_light / (N * N)
 
 def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursion_level):
     if recursion_level > settings.max_recursions:
@@ -141,15 +152,12 @@ def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursi
             light_color = np.array(light.color)
             N_dot_L = max(0, np.dot(normal, L_dir))
 
-            # I_diff = K_d * I_p * (N · L)
             diffuse_contribution = light_color * np.array(mat.diffuse_color) * N_dot_L
             
-        
             R_dir = normalize(2 * np.dot(normal, L_dir) * normal - L_dir)
             V_dir = normalize(-ray_dir)
             R_dot_V = max(0, np.dot(R_dir, V_dir))
             
-            # I_spec = K_s * I_p * (R · V)^n * specular_intensity
             specular_factor = pow(R_dot_V, mat.shininess) * light.specular_intensity
             specular_contribution = light_color * np.array(mat.specular_color) * specular_factor
 
@@ -158,7 +166,6 @@ def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursi
 
     reflection_color = np.zeros(3)
     if np.linalg.norm(mat.reflection_color) > 0:
-        # R = V - 2(V · N)N
         ref_dir = normalize(ray_dir - 2 * np.dot(ray_dir, normal) * normal)
         rec_color = cast_ray(hit_point_offset, ref_dir, surfaces, materials, lights, settings, recursion_level + 1)
         reflection_color = rec_color * np.array(mat.reflection_color)
@@ -171,22 +178,7 @@ def cast_ray(ray_origin, ray_dir, surfaces, materials, lights, settings, recursi
     color = (transparency_color * mat.transparency) + \
             (diffuse_final + specular_final) * (1 - mat.transparency) + \
             reflection_color
-    return np.clip(color, 0, 1)
-
-def render_chunk(y_start, y_end, width, height, camera, surfaces, materials, lights, scene_settings):
-    # Create a local buffer for this chunk of the image
-    chunk_height = y_end - y_start
-    chunk_image = np.zeros((chunk_height, width, 3))
-    
-    for i in range(chunk_height):
-        y = y_start + i
-        for x in range(width):
-            ray_origin, ray_dir = camera.get_ray(x, y, width, height)
-            
-            pixel_color = cast_ray(ray_origin, ray_dir, surfaces, materials, lights, scene_settings, 0)
-            chunk_image[i, x] = 255 * pixel_color
-            
-    return (y_start, chunk_image)
+    return color
 
 def main():
     parser = argparse.ArgumentParser(description='Python Ray Tracer')
@@ -198,42 +190,32 @@ def main():
 
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
-    # Filter objects by type
     materials = [obj for obj in objects if isinstance(obj, Material)]
     lights = [obj for obj in objects if isinstance(obj, Light)]
     surfaces = [obj for obj in objects if isinstance(obj, Surface)]
 
-    # Determine how many CPUs we have
-    num_processes = multiprocessing.cpu_count()
+    width, height = args.width, args.height
+    final_image = np.zeros((height, width, 3))
 
-    # Calculate chunk size (how many rows per process)
-    chunk_size = args.height // num_processes
-    
-    # Create a list of arguments for each process
-    # Each process gets a different y_start and y_end
-    tasks = []
-    for i in range(num_processes):
-        y_start = i * chunk_size
-        # The last process takes any remaining rows (in case height isn't divisible by num_processes)
-        if i == num_processes - 1:
-            y_end = args.height
-        else:
-            y_end = (i + 1) * chunk_size
+    print(f"Starting render on a single processor...")
+    start_time = time.time()
+
+    # רינדור סדרתי (Single Core)
+    for y in range(height):
+        for x in range(width):
+            ray_origin, ray_dir = camera.get_ray(x, y, width, height)
+            pixel_color = cast_ray(ray_origin, ray_dir, surfaces, materials, lights, scene_settings, 0)
+            final_image[y, x] = pixel_color
         
-        tasks.append((y_start, y_end, args.width, args.height, camera, surfaces, materials, lights, scene_settings))
+        # הדפסת התקדמות כל 50 שורות
+        if y % 50 == 0:
+            print(f"Row {y}/{height} done...")
 
-    # Create the Pool and Run tasks
-    with multiprocessing.Pool(processes=num_processes) as pool:
-        # starmap unpacks the arguments tuple into the function arguments
-        results = pool.starmap(render_chunk, tasks)
+    end_time = time.time()
+    print(f"Render time: {end_time - start_time:.4f} seconds")
+    final_image=np.clip(final_image, 0,1)*255
 
-    # Sort results by y_start to ensure correct order
-    results.sort(key=lambda x: x[0])
-    
-    # Concatenate all the chunk arrays into one final image
-    final_image = np.concatenate([r[1] for r in results], axis=0)
     save_image(final_image, args.output_image)
 
 if __name__ == '__main__':
-    multiprocessing.freeze_support()
     main()
