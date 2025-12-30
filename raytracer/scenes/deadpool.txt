@@ -1,0 +1,64 @@
+# Deadpool Logo Scene Definition
+# Based on the provided custom scene format.
+
+# --- 1. General Settings (set) ---
+# Background color: White (1,1,1) to match reference.
+# Root shadow rays: 1 (hard shadows, though not strictly needed here).
+# Max recursions: 0 (no reflections needed for flat look).
+set 1 1 1 1 0
+
+# --- 2. Camera Settings (cam) ---
+# Position: (0, 0, 50) - Back along the Z-axis.
+# Look-at: (0, 0, 0) - Looking at the center of the head.
+# Up-vector: (0, 1, 0) - Standard up.
+# Screen distance: 10
+# Screen width: 26 (Wide enough to fit the head radius of 12)
+cam 0 0 50 0 0 0 0 1 0 10 26
+
+# --- 3. Lights (lgt) ---
+# To achieve a 2D "flat" look on spheres, we place a strong light
+# directly behind the camera position to minimize gradients.
+# Pos(0,0,60), RGB(1,1,1), Specular(0 - crucial for matte look), Shadow(1), Radius(0)
+lgt 0 0 60 1 1 1 0 1 0
+
+# --- 4. Materials (mtl) ---
+# To look like 2D art, specular and reflection must be 0.
+
+# Material 1: Flat Matte Red (The Head)
+# Diff(1,0,0) Spec(0,0,0) Refl(0,0,0) Shine(1) Trans(0)
+mtl 1 0 0 0 0 0 0 0 0 1 0
+
+# Material 2: Flat Matte Black (The Eye Patches)
+# Diff(0,0,0) Spec(0,0,0) Refl(0,0,0) Shine(1) Trans(0)
+mtl 0 0 0 0 0 0 0 0 0 1 0
+
+# Material 3: Flat Matte White (The Eyes)
+# Diff(1,1,1) Spec(0,0,0) Refl(0,0,0) Shine(1) Trans(0)
+mtl 1 1 1 0 0 0 0 0 0 1 0
+
+# --- 5. Geometry (sph) ---
+# Objects are stacked along the Z-axis to create layers.
+
+# The Main Red Head (Large Sphere, back layer)
+# Center at origin, Radius 12, Material 1 (Red)
+sph 0 0 0 12 1
+
+# Left Eye Patch (Black Sphere, middle layer)
+# Shifted left (-x) and up (+y), pushed forward in Z to overlap red head.
+# Center(-4, 2, 9), Radius 3.5, Material 2 (Black)
+sph -4 2 9 3.5 2
+
+# Right Eye Patch (Black Sphere, middle layer)
+# Symmetrical to the left patch.
+# Center(4, 2, 9), Radius 3.5, Material 2 (Black)
+sph 4 2 9 3.5 2
+
+# Left Eye White (Small Sphere, front layer)
+# Same X,Y center as the patch, pushed further forward in Z.
+# Center(-4, 2, 11.8), Radius 1.2, Material 3 (White)
+sph -4 2 11.8 1.2 3
+
+# Right Eye White (Small Sphere, front layer)
+# Symmetrical to the left eye.
+# Center(4, 2, 11.8), Radius 1.2, Material 3 (White)
+sph 4 2 11.8 1.2 3
