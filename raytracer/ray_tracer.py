@@ -1,7 +1,6 @@
 import argparse
 from PIL import Image
 import numpy as np
-import time
 
 from constants import EPSILON
 from camera import Camera
@@ -202,20 +201,12 @@ def main():
     width, height = args.width, args.height
     final_image = np.zeros((height, width, 3))
 
-    # print(f"Starting render on a single processor...")
-    # start_time = time.time()
-
     for y in range(height):
         for x in range(width):
             ray_origin, ray_dir = camera.get_ray(x, y, width, height)
             pixel_color = cast_ray(ray_origin, ray_dir, surfaces, materials, lights, scene_settings, 0)
             final_image[y, x] = pixel_color
         
-    #     if y % 50 == 0:
-    #         print(f"Row {y}/{height} done...")
-
-    # end_time = time.time()
-    # print(f"Render time: {end_time - start_time:.4f} seconds")
     final_image=np.clip(final_image, 0,1)*255
 
     save_image(final_image, args.output_image)
